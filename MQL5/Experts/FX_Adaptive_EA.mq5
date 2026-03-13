@@ -43,8 +43,9 @@ input double InpValuePerPoint     = 100000.0;
 input double InpMaxLots           = 2.0;
 input double InpMinLots           = 0.01;
 
-//--- Фильтр сессий (часы сервера)
+//--- Фильтр сессий (часы сервера, МСК)
 input group "=== Session Filter ==="
+input bool   InpUseSessionFilter   = false;
 input int    InpStartHour         = 7;
 input int    InpEndHour           = 22;
 input int    InpFridayCutoffHour   = 20;
@@ -52,7 +53,7 @@ input int    InpFridayCutoffHour   = 20;
 //--- Спецификации брокера (specifications-POINT.csv)
 input group "=== Broker Specs ==="
 input bool   InpUseBrokerSpecs    = true;
-input double InpSpreadMaxPips     = 5.0;
+input double InpSpreadMaxPips     = 10.0;
 
 //--- Визуализация режима
 input group "=== Visualization ==="
@@ -155,6 +156,7 @@ void EnforceLimitLevel(double price, double &sl, double &tp) {
 
 //+------------------------------------------------------------------+
 bool IsSessionAllowed() {
+   if(!InpUseSessionFilter) return true;
    MqlDateTime dt;
    TimeToStruct(TimeCurrent(), dt);
    if(dt.hour < InpStartHour || dt.hour >= InpEndHour) return false;
@@ -283,7 +285,7 @@ int GetSignal(double &outSL, double &outTP) {
    if(CopyBuffer(handleATR, 0, 1, InpMBBreakoutLookback + 2, atrBuf) < InpMBBreakoutLookback + 2)
       return 0;
 
-   double atrVal = atrBuf[1];
+   double atrVal = atrBuf[0];
    if(atrVal <= 0) return 0;
 
    if(regime == REGIME_MEAN_REVERSION) {
@@ -291,21 +293,21 @@ int GetSignal(double &outSL, double &outTP) {
       if(CopyBuffer(handleBB, 1, 1, 3, bbUpper) < 3) return 0;
       if(CopyBuffer(handleBB, 2, 1, 3, bbLower) < 3) return 0;
 
-      if(close <= bbLower[1]) {
+      if(close <= bbLower[0]) {
          outSL = close - InpMRSLATRMult * atrVal;
-         outTP = bbMiddle[1];
+         outTP = bbMiddle[0];
          return 1;
       }
-      if(close >= bbUpper[1]) {
+      if(close >= bbUpper[0]) {
          outSL = close + InpMRSLATRMult * atrVal;
-         outTP = bbMiddle[1];
+         outTP = bbMiddle[0];
          return -1;
       }
    }
    else if(regime == REGIME_MOMENTUM_BREAKOUT) {
-      double rh = iHigh(_Symbol, PERIOD_CURRENT, 1);
-      double rl = iLow(_Symbol, PERIOD_CURRENT, 1);
-      for(int i = 2; i <= InpMBBreakoutLookback; i++) {
+      double rh = iHigh(_Symbol, PERIOD_CURRENT, 2);
+      double rl = iLow(_Symbol, PERIOD_CURRENT, 2);
+      for(int i = 3; i <= InpMBBreakoutLookback + 1; i++) {
          double h = iHigh(_Symbol, PERIOD_CURRENT, i);
          double l = iLow(_Symbol, PERIOD_CURRENT, i);
          if(h > rh) rh = h;
