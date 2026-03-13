@@ -152,7 +152,7 @@ bool IsSessionAllowed() {
    MqlDateTime dt;
    TimeToStruct(TimeCurrent(), dt);
    if(dt.hour < InpStartHour || dt.hour >= InpEndHour) return false;
-   if(dt.day_of_week == 5 && dt.hour >= InpFridayCutoff) return false;
+   if(dt.day_of_week == 5 && dt.hour >= InpFridayCutoffHour) return false;
    return true;
 }
 
