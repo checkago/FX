@@ -54,6 +54,11 @@ input group "=== Broker Specs ==="
 input bool   InpUseBrokerSpecs    = true;
 input double InpSpreadMaxPips     = 5.0;
 
+//--- Визуализация режима
+input group "=== Visualization ==="
+input bool   InpShowRegimeBg      = true;
+input int    InpRegimeBars       = 200;
+
 //--- Прочее
 input group "=== Other ==="
 input int    InpMagic             = 123456;
@@ -94,6 +99,7 @@ int OnInit() {
 
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
+   ObjectsDeleteAll(0, "FX_Regime_");
    IndicatorRelease(handleADX);
    IndicatorRelease(handleATR);
    IndicatorRelease(handleBB);
@@ -194,6 +200,77 @@ ENUM_REGIME DetectRegime() {
       return REGIME_MOMENTUM_BREAKOUT;
 
    return REGIME_NEUTRAL;
+}
+
+//+------------------------------------------------------------------+
+ENUM_REGIME DetectRegimeAtBar(int barIndex) {
+   int lookback = MathMin(InpBBSqueezeLookback, 50);
+   if(CopyBuffer(handleADX, 0, barIndex, 3, adxBuf) < 3) return REGIME_NEUTRAL;
+   if(CopyBuffer(handleBB, 0, barIndex, lookback + 3, bbMiddle) < lookback + 3) return REGIME_NEUTRAL;
+   if(CopyBuffer(handleBB, 1, barIndex, lookback + 3, bbUpper) < lookback + 3) return REGIME_NEUTRAL;
+   if(CopyBuffer(handleBB, 2, barIndex, lookback + 3, bbLower) < lookback + 3) return REGIME_NEUTRAL;
+   if(CopyBuffer(handleMA, 0, barIndex, 3, maBuf) < 3) return REGIME_NEUTRAL;
+
+   double adxVal = adxBuf[0];
+   double close = iClose(_Symbol, PERIOD_CURRENT, barIndex);
+   double maVal = maBuf[0];
+   if(adxVal <= 0 || maVal <= 0) return REGIME_NEUTRAL;
+
+   double bbWidth = (bbUpper[0] - bbLower[0]) / bbMiddle[0];
+   double bbWidthMA = 0;
+   for(int i = 0; i < lookback; i++) {
+      double m = bbMiddle[i];
+      if(m > 0) bbWidthMA += (bbUpper[i] - bbLower[i]) / m;
+   }
+   bbWidthMA /= lookback;
+   bool bbSqueeze = (bbWidth < bbWidthMA);
+   double priceToMA = MathAbs(close - maVal) / maVal;
+
+   if(adxVal < InpADXLowThreshold && bbSqueeze && priceToMA < InpPriceToMATolerance)
+      return REGIME_MEAN_REVERSION;
+   if(adxVal > InpADXHighThreshold && !bbSqueeze)
+      return REGIME_MOMENTUM_BREAKOUT;
+   return REGIME_NEUTRAL;
+}
+
+//+------------------------------------------------------------------+
+color RegimeToColor(ENUM_REGIME r) {
+   if(r == REGIME_MOMENTUM_BREAKOUT) return clrDarkGreen;
+   if(r == REGIME_MEAN_REVERSION) return clrDarkRed;
+   return clrDimGray;
+}
+
+//+------------------------------------------------------------------+
+void DrawRegimeBackground() {
+   if(!InpShowRegimeBg) return;
+   int bars = MathMin(InpRegimeBars, Bars(_Symbol, PERIOD_CURRENT) - 2);
+   if(bars <= 0) return;
+
+   double priceMax = ChartGetDouble(0, CHART_PRICE_MAX);
+   double priceMin = ChartGetDouble(0, CHART_PRICE_MIN);
+   if(priceMax <= priceMin) return;
+
+   for(int i = 0; i < bars; i++) {
+      datetime t1 = iTime(_Symbol, PERIOD_CURRENT, i + 1);
+      datetime t2 = iTime(_Symbol, PERIOD_CURRENT, i);
+
+      ENUM_REGIME r = DetectRegimeAtBar(i + 1);
+      color c = RegimeToColor(r);
+
+      string name = "FX_Regime_" + IntegerToString(i);
+      if(ObjectFind(0, name) < 0) {
+         ObjectCreate(0, name, OBJ_RECTANGLE, 0, t1, priceMax, t2, priceMin);
+      }
+      ObjectSetInteger(0, name, OBJPROP_COLOR, c);
+      ObjectSetInteger(0, name, OBJPROP_FILL, true);
+      ObjectSetInteger(0, name, OBJPROP_BACK, true);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_TIMEFRAMES, OBJ_ALL_PERIODS);
+      ObjectMove(0, name, 0, t1, priceMax);
+      ObjectMove(0, name, 1, t2, priceMin);
+   }
+
+   ChartRedraw(0);
 }
 
 //+------------------------------------------------------------------+
@@ -302,6 +379,9 @@ void ClosePositionIfReverse(int signal) {
 
 //+------------------------------------------------------------------+
 void OnTick() {
+   if(IsNewBar()) {
+      DrawRegimeBackground();
+   }
    if(!IsNewBar()) return;
    if(!IsSessionAllowed()) return;
 
