@@ -187,7 +187,7 @@ def main() -> None:
                 .join(result, how="left")
             )
 
-            trades, equity = build_trades_and_equity(combined)
+            trades, equity = build_trades_and_equity(combined, symbol=mt5_symbol)
 
             if not trades.empty:
                 logger.info("%s: PnL=%.2f, trades=%d", mt5_symbol, trades["pnl"].sum(), len(trades))

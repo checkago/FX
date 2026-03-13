@@ -50,7 +50,7 @@ def run_sweep(
         config=baseline_engine_cfg,
     )
     baseline_df = ohlc.join(baseline_res, how="left")
-    baseline_trades, baseline_equity = build_trades_and_equity(baseline_df)
+    baseline_trades, baseline_equity = build_trades_and_equity(baseline_df, symbol=symbol)
     baseline_total_pnl = float(baseline_trades["pnl"].sum()) if not baseline_trades.empty else 0.0
     if not baseline_equity.empty:
         baseline_run_max = baseline_equity.cummax()
@@ -103,7 +103,7 @@ def run_sweep(
         )
 
         df_for_equity = ohlc.join(res, how="left")
-        trades, equity = build_trades_and_equity(df_for_equity)
+        trades, equity = build_trades_and_equity(df_for_equity, symbol=symbol)
 
         total_pnl = float(trades["pnl"].sum()) if not trades.empty else 0.0
         n_trades = int(len(trades))

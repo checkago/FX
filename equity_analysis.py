@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from config import TRADING, RISK
 
-PIP_SIZE = 0.0001
-PIP_VALUE_PER_LOT = 10.0
-START_EQUITY = TRADING["initial_equity"]
-SPREAD_PIPS = RISK["spread_pips"]
-COMMISSION_PER_LOT = RISK["commission_per_lot"]
+try:
+    from config import BROKER_SPECS
+except ImportError:
+    BROKER_SPECS = {"use_broker_specs": False}
 
 
 def load_backtest(path: str) -> pd.DataFrame:
@@ -24,13 +25,31 @@ def load_backtest(path: str) -> pd.DataFrame:
     return df.sort_index()
 
 
-def build_trades_and_equity(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+def build_trades_and_equity(
+    df: pd.DataFrame,
+    symbol: Optional[str] = None,
+) -> tuple[pd.DataFrame, pd.Series]:
     position = 0
     entry_price: float | None = None
     entry_time = None
     size = 0.0
 
-    equity = START_EQUITY
+    if BROKER_SPECS.get("use_broker_specs") and symbol:
+        try:
+            from broker_specs import get_spread_pips, get_pip_size, get_pip_value_per_lot
+            pip_size = get_pip_size(symbol)
+            pip_value = get_pip_value_per_lot(symbol)
+            spread_pips = get_spread_pips(symbol)
+        except ImportError:
+            pip_size = 0.0001
+            pip_value = 10.0
+            spread_pips = RISK["spread_pips"]
+    else:
+        pip_size = 0.0001 if not symbol or "JPY" not in (symbol or "").upper() else 0.01
+        pip_value = 10.0
+        spread_pips = RISK["spread_pips"]
+
+    equity = TRADING["initial_equity"]
     equity_series = []
 
     trades: list[dict] = []
@@ -74,11 +93,11 @@ def build_trades_and_equity(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
                 exit_reason = "reverse"
 
         if position != 0 and exit_price is not None:
-            points = (exit_price - entry_price) / PIP_SIZE  # type: ignore[arg-type]
-            pnl_per_lot = points * PIP_VALUE_PER_LOT
+            points = (exit_price - entry_price) / pip_size  # type: ignore[arg-type]
+            pnl_per_lot = points * pip_value
             trade_pnl = position * pnl_per_lot * size
 
-            cost = SPREAD_PIPS * PIP_VALUE_PER_LOT * size + COMMISSION_PER_LOT * size
+            cost = spread_pips * pip_value * size + RISK["commission_per_lot"] * size
             trade_pnl -= cost
             equity += trade_pnl
 
@@ -199,7 +218,7 @@ def main() -> None:
     path = "backtest_EURUSDrfd_H1_20240101_20260310.parquet"
     df = load_backtest(path)
 
-    trades, equity = build_trades_and_equity(df)
+    trades, equity = build_trades_and_equity(df, symbol="EURUSDrfd")
 
     print("Первые сделки:")
     print(trades.head())

@@ -56,13 +56,23 @@ REGIME_DEFAULTS = {
 }
 
 
-# --- Фильтр по сессиям (время сервера MT5) ---
+# --- Фильтр по сессиям (МСК, время брокера) ---
 
 SESSION_FILTER = {
-    # торгуем только между этими часами (включительно по start, исключительно по end)
+    # торгуем только между этими часами МСК (включительно по start, исключительно по end)
     "start_hour": 7,
     "end_hour": 22,
     # в пятницу закрываем новые входы после этого часа
     "friday_cutoff_hour": 20,
+    # смещение сервера MT5 относительно МСК (если сервер в МСК — 0)
+    "server_offset_hours": 0,
+}
+
+# --- Спецификации брокера (из specifications-POINT.csv, marginal-RUB.csv) ---
+
+BROKER_SPECS = {
+    "use_broker_specs": True,
+    "specifications_path": "specifications-POINT.csv",
+    "margins_path": "marginal-RUB.csv",
 }
 
