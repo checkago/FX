@@ -23,10 +23,10 @@ input int    InpATRPeriod         = 14;
 input int    InpBBPeriod          = 20;
 input double InpBBStdDev          = 2.0;
 input int    InpMAPeriod          = 50;
-input double InpADXLowThreshold   = 20.0;
-input double InpADXHighThreshold  = 22.0;
+input double InpADXLowThreshold   = 18.0;
+input double InpADXHighThreshold  = 24.0;
 input int    InpBBSqueezeLookback = 20;
-input double InpPriceToMATolerance = 0.02;
+input double InpPriceToMATolerance = 0.03;
 
 //--- Параметры стратегии
 input group "=== Strategy ==="
@@ -52,7 +52,7 @@ input int    InpFridayCutoffHour   = 20;
 
 //--- Спецификации брокера (specifications-POINT.csv)
 input group "=== Broker Specs ==="
-input bool   InpUseBrokerSpecs    = true;
+input bool   InpUseBrokerSpecs    = false;
 input double InpSpreadMaxPips     = 10.0;
 
 //--- Визуализация режима
@@ -173,9 +173,9 @@ ENUM_REGIME DetectRegime() {
    if(CopyBuffer(handleBB, 2, 1, 3, bbLower) < 3) return REGIME_NEUTRAL;
    if(CopyBuffer(handleMA, 0, 1, 3, maBuf) < 3) return REGIME_NEUTRAL;
 
-   double adxVal = adxBuf[1];
+   double adxVal = adxBuf[0];
    double close = iClose(_Symbol, PERIOD_CURRENT, 1);
-   double maVal = maBuf[1];
+   double maVal = maBuf[0];
 
    if(adxVal <= 0 || maVal <= 0) return REGIME_NEUTRAL;
 
@@ -184,9 +184,9 @@ ENUM_REGIME DetectRegime() {
    if(CopyBuffer(handleBB, 1, 1, lookback + 1, bbUpper) < lookback + 1) return REGIME_NEUTRAL;
    if(CopyBuffer(handleBB, 2, 1, lookback + 1, bbLower) < lookback + 1) return REGIME_NEUTRAL;
 
-   double bbWidth = (bbUpper[1] - bbLower[1]) / bbMiddle[1];
+   double bbWidth = (bbUpper[0] - bbLower[0]) / bbMiddle[0];
    double bbWidthMA = 0;
-   for(int i = 1; i <= lookback; i++) {
+   for(int i = 0; i < lookback; i++) {
       double m = bbMiddle[i];
       if(m > 0) bbWidthMA += (bbUpper[i] - bbLower[i]) / m;
    }
