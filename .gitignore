@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.parquet
+backtest_*.csv
+trades_*.csv
+equity_*.csv
+param_sweep_results.csv
+best_params*.json
